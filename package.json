@@ -161,7 +161,10 @@
 					},
 					"discord.openaiGptModel": {
 						"type": "string",
-						"enum": ["gpt-3.5-turbo", "gpt-4"],
+						"enum": [
+							"gpt-3.5-turbo",
+							"gpt-4"
+						],
 						"default": "gpt-3.5-turbo",
 						"description": "Choose which GPT model to use for status completions"
 					},
@@ -204,6 +207,7 @@
 		"bufferutil": "^4.0.6",
 		"dayjs": "^1.11.3",
 		"discord-rpc": "^4.0.1",
+		"electron": "^24.1.2",
 		"lodash-es": "^4.17.21",
 		"openai": "^3.2.1",
 		"tslib": "^2.4.0",
@@ -219,6 +223,7 @@
 		"eslint": "^8.17.0",
 		"eslint-config-marine": "^9.4.1",
 		"eslint-config-prettier": "^8.5.0",
+		"eslint-plugin-import": "^2.27.5",
 		"prettier": "^2.6.2",
 		"terser-webpack-plugin": "^5.3.3",
 		"ts-loader": "^9.3.0",
@@ -228,6 +233,6 @@
 		"webpack-cli": "^4.9.2"
 	},
 	"engines": {
-		"vscode": "^1.63.1"
+		"vscode": "^1.67.0"
 	}
 }
