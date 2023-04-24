@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
-const { Client } = require('discord-rpc'); // eslint-disable-line
-import throttle from 'lodash-es/throttle';
+import { throttle } from 'lodash-es';
 import { commands, ExtensionContext, StatusBarAlignment, StatusBarItem, window, workspace, debug } from 'vscode';
+const { Client } = require('discord-rpc'); // eslint-disable-line
 
 import { FileDetailsOptions, activity } from './activity';
 import { CLIENT_ID, CONFIG_KEYS } from './constants';
@@ -46,19 +46,17 @@ async function login() {
 
 		void sendActivity();
 		const onChangeActiveTextEditor = window.onDidChangeActiveTextEditor(() => sendActivity());
-		const onChangeTextDocument = workspace.onDidChangeTextDocument(throttle(() => sendActivity(), 2000));
-		const onChangeTextDocumentSlow = workspace.onDidChangeTextDocument(
-			throttle(() => sendActivity({ changeStatus: true }), 10000),
-		);
 		const onStartDebugSession = debug.onDidStartDebugSession(() => sendActivity());
 		const onTerminateDebugSession = debug.onDidTerminateDebugSession(() => sendActivity());
+		const onDidChangeTextEditorSelection = window.onDidChangeTextEditorSelection(
+			throttle(() => sendActivity({ changeStatus: true }), 10000, { trailing: false }),
+		);
 
 		listeners.push(
 			onChangeActiveTextEditor,
-			onChangeTextDocument,
 			onStartDebugSession,
 			onTerminateDebugSession,
-			onChangeTextDocumentSlow,
+			onDidChangeTextEditorSelection,
 		);
 	});
 

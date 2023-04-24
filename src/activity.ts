@@ -1,4 +1,5 @@
 import { basename, parse, sep } from 'path';
+import { throttle } from 'lodash-es';
 import { OpenAIApi, Configuration } from 'openai';
 import { debug, env, Selection, TextDocument, window, workspace } from 'vscode';
 import {
@@ -42,20 +43,32 @@ export interface FileDetailsOptions {
 	changeStatus?: boolean | undefined;
 }
 
-const openai = new OpenAIApi(new Configuration({ apiKey: config.openaiApiKey }));
-let oldStatus: string | undefined;
+let oldStatus = 'Unknown activity';
 
 async function generateStatusFromGPT(text: string) {
-	const completion = await openai.createChatCompletion({
-		model: config.openaiGptModel,
-		messages: [
-			{ role: 'system', content: prompt.content },
-			{ role: 'user', content: text },
-		],
-	});
+	try {
+		const openai = new OpenAIApi(new Configuration({ apiKey: config.openaiApiKey }));
 
-	return completion.data.choices[0].message?.content ?? 'Unknown activity';
+		const completion = await openai.createChatCompletion({
+			model: config.openaiGptModel,
+			temperature: 1.0,
+			messages: [
+				{ role: 'system', content: prompt.content },
+				{ role: 'user', content: text },
+			],
+		});
+
+		log(LogLevel.Info, completion.data.choices[0].message?.content ?? 'Unkown activity');
+
+		return completion.data.choices[0].message?.content ?? 'Unknown activity';
+	} catch (e) {
+		log(LogLevel.Error, 'Unable to generate status');
+	}
+
+	return undefined;
 }
+
+const throttledGenerateStatusFromGPT = throttle(generateStatusFromGPT, 10000, { trailing: false });
 
 async function fileDetails(_raw: string, document: TextDocument, selection: Selection, options?: FileDetailsOptions) {
 	let raw = _raw.slice();
@@ -63,13 +76,16 @@ async function fileDetails(_raw: string, document: TextDocument, selection: Sele
 	if (raw.includes(REPLACE_KEYS.Status)) {
 		let status: string;
 
-		if (options?.changeStatus && config.openaiApiKey) {
+		if (options?.changeStatus !== false && options?.changeStatus !== undefined && config.openaiApiKey !== '') {
+			log(LogLevel.Debug, `Changing status with key: ${config.openaiApiKey}`);
 			const surroundingText = getSurroundingText(document, selection.active, config.statusContextRange);
 
-			status = await generateStatusFromGPT(surroundingText);
+			status = (await throttledGenerateStatusFromGPT(surroundingText)) ?? oldStatus;
 			oldStatus = status;
 		} else {
-			status = oldStatus ? oldStatus : '';
+			log(LogLevel.Debug, `Not changing the status`);
+
+			status = oldStatus;
 		}
 
 		raw = raw.replace(REPLACE_KEYS.Status, status);
