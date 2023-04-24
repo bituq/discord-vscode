@@ -153,6 +153,24 @@
 						"type": "number",
 						"default": 0,
 						"description": "Time (in seconds) to clear the presence when idling. 0 (the default) means no clearing"
+					},
+					"discord.openaiApiKey": {
+						"type": "string",
+						"default": "",
+						"description": "Your OpenAI API key for using GPT"
+					},
+					"discord.openaiGptModel": {
+						"type": "string",
+						"enum": ["gpt-3.5-turbo", "gpt-4"],
+						"default": "gpt-3.5-turbo",
+						"description": "Choose which GPT model to use for status completions"
+					},
+					"discord.statusContextRange": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 512,
+						"default": 128,
+						"description": "Number of characters around the cursor to use as context for the status (between 1 and 512). Keep this value low to avoid high API usage costs."
 					}
 				}
 			}
@@ -187,6 +205,7 @@
 		"dayjs": "^1.11.3",
 		"discord-rpc": "^4.0.1",
 		"lodash-es": "^4.17.21",
+		"openai": "^3.2.1",
 		"tslib": "^2.4.0",
 		"utf-8-validate": "^5.0.9"
 	},

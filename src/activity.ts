@@ -1,5 +1,6 @@
 import { basename, parse, sep } from 'path';
 import { debug, env, Selection, TextDocument, window, workspace } from 'vscode';
+import prompt from './data/statusPrompt.json';
 
 import {
 	CONFIG_KEYS,
@@ -15,7 +16,9 @@ import {
 	VSCODE_INSIDERS_IMAGE_KEY,
 } from './constants';
 import { log, LogLevel } from './logger';
-import { getConfig, getGit, resolveFileIcon, toLower, toTitle, toUpper } from './util';
+import { getConfig, getGit, getSurroundingText, resolveFileIcon, toLower, toTitle, toUpper } from './util';
+import { OpenAIApi, Configuration } from 'openai';
+import { config } from './extension';
 
 interface ActivityPayload {
 	details?: string | undefined;
@@ -35,8 +38,42 @@ interface ActivityPayload {
 	instance?: boolean | undefined;
 }
 
-async function fileDetails(_raw: string, document: TextDocument, selection: Selection) {
+export interface FileDetailsOptions {
+	changeStatus?: boolean| undefined;
+}
+
+const openai = new OpenAIApi(new Configuration({apiKey: config.openaiApiKey}))
+let oldStatus: string | undefined;
+
+async function generateStatusFromGPT(text: string) {
+	const completion = await openai.createChatCompletion({
+		model: config.openaiGptModel,
+		messages: [
+			{role: "system", content: prompt.content},
+			{role: "user", content: text}
+		]
+	});
+
+	return completion.data.choices[0].message?.content ?? "Unknown activity";
+}
+
+async function fileDetails(_raw: string, document: TextDocument, selection: Selection, options?: FileDetailsOptions) {
 	let raw = _raw.slice();
+
+	if (raw.includes(REPLACE_KEYS.Status)) {
+		let status: string
+
+		if (options?.changeStatus) {
+			const surroundingText = getSurroundingText(document, selection.active, config.statusContextRange);
+
+			status = await generateStatusFromGPT(surroundingText);
+			oldStatus = status;
+		} else {
+			status = oldStatus ? oldStatus : ""
+		}
+
+		raw = raw.replace(REPLACE_KEYS.Status, status);
+	}
 
 	if (raw.includes(REPLACE_KEYS.TotalLines)) {
 		raw = raw.replace(REPLACE_KEYS.TotalLines, document.lineCount.toLocaleString());
@@ -104,7 +141,7 @@ async function fileDetails(_raw: string, document: TextDocument, selection: Sele
 	return raw;
 }
 
-async function details(idling: CONFIG_KEYS, editing: CONFIG_KEYS, debugging: CONFIG_KEYS) {
+async function details(idling: CONFIG_KEYS, editing: CONFIG_KEYS, debugging: CONFIG_KEYS, options?: FileDetailsOptions) {
 	const config = getConfig();
 	let raw = (config[idling] as string).replace(REPLACE_KEYS.Empty, FAKE_EMPTY);
 
@@ -138,7 +175,12 @@ async function details(idling: CONFIG_KEYS, editing: CONFIG_KEYS, debugging: CON
 		}
 
 		try {
-			raw = await fileDetails(raw, window.activeTextEditor.document, window.activeTextEditor.selection);
+			raw = await fileDetails(
+				raw,
+				window.activeTextEditor.document,
+				window.activeTextEditor.selection,
+				options
+			);
 		} catch (error) {
 			log(LogLevel.Error, `Failed to generate file details: ${error as string}`);
 		}
@@ -156,7 +198,7 @@ async function details(idling: CONFIG_KEYS, editing: CONFIG_KEYS, debugging: CON
 	return raw;
 }
 
-export async function activity(previous: ActivityPayload = {}) {
+export async function activity(previous: ActivityPayload = {}, fileDetailsOptions?: FileDetailsOptions) {
 	const config = getConfig();
 	const swapBigAndSmallImage = config[CONFIG_KEYS.SwapBigAndSmallImage];
 
@@ -177,7 +219,7 @@ export async function activity(previous: ActivityPayload = {}) {
 	let state: ActivityPayload = {
 		details: removeDetails
 			? undefined
-			: await details(CONFIG_KEYS.DetailsIdling, CONFIG_KEYS.DetailsEditing, CONFIG_KEYS.DetailsDebugging),
+			: await details(CONFIG_KEYS.DetailsIdling, CONFIG_KEYS.DetailsEditing, CONFIG_KEYS.DetailsDebugging, fileDetailsOptions),
 		startTimestamp: config[CONFIG_KEYS.RemoveTimestamp] ? undefined : previous.startTimestamp ?? Date.now(),
 		largeImageKey: IDLE_IMAGE_KEY,
 		largeImageText: defaultLargeImageText,
@@ -224,13 +266,14 @@ export async function activity(previous: ActivityPayload = {}) {
 			...state,
 			details: removeDetails
 				? undefined
-				: await details(CONFIG_KEYS.DetailsIdling, CONFIG_KEYS.DetailsEditing, CONFIG_KEYS.DetailsDebugging),
+				: await details(CONFIG_KEYS.DetailsIdling, CONFIG_KEYS.DetailsEditing, CONFIG_KEYS.DetailsDebugging, fileDetailsOptions),
 			state: removeLowerDetails
 				? undefined
 				: await details(
 						CONFIG_KEYS.LowerDetailsIdling,
 						CONFIG_KEYS.LowerDetailsEditing,
 						CONFIG_KEYS.LowerDetailsDebugging,
+						fileDetailsOptions
 				  ),
 		};
 

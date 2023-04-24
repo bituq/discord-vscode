@@ -4,7 +4,7 @@ const { Client } = require('discord-rpc'); // eslint-disable-line
 import { commands, ExtensionContext, StatusBarAlignment, StatusBarItem, window, workspace, debug } from 'vscode';
 import throttle from 'lodash-es/throttle';
 
-import { activity } from './activity';
+import { FileDetailsOptions, activity } from './activity';
 import { CLIENT_ID, CONFIG_KEYS } from './constants';
 import { log, LogLevel } from './logger';
 import { getConfig, getGit } from './util';
@@ -14,7 +14,7 @@ statusBarIcon.text = '$(pulse) Connecting to Discord...';
 
 // eslint-disable-next-line
 let rpc = new Client({ transport: 'ipc' });
-const config = getConfig();
+export const config = getConfig();
 
 let state = {};
 let idle: NodeJS.Timeout | undefined;
@@ -26,9 +26,9 @@ export function cleanUp() {
 	listeners = [];
 }
 
-async function sendActivity() {
+async function sendActivity(options?: FileDetailsOptions) {
 	state = {
-		...(await activity(state)),
+		...(await activity(state, options)),
 	};
 	rpc.setActivity(state);
 }
@@ -47,10 +47,11 @@ async function login() {
 		void sendActivity();
 		const onChangeActiveTextEditor = window.onDidChangeActiveTextEditor(() => sendActivity());
 		const onChangeTextDocument = workspace.onDidChangeTextDocument(throttle(() => sendActivity(), 2000));
+		const onChangeTextDocumentSlow = workspace.onDidChangeTextDocument(throttle(() => sendActivity({ changeStatus: true }), 10000));
 		const onStartDebugSession = debug.onDidStartDebugSession(() => sendActivity());
 		const onTerminateDebugSession = debug.onDidTerminateDebugSession(() => sendActivity());
 
-		listeners.push(onChangeActiveTextEditor, onChangeTextDocument, onStartDebugSession, onTerminateDebugSession);
+		listeners.push(onChangeActiveTextEditor, onChangeTextDocument, onStartDebugSession, onTerminateDebugSession, onChangeTextDocumentSlow);
 	});
 
 	rpc.on('disconnected', () => {

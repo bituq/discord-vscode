@@ -1,5 +1,5 @@
 import { basename } from 'path';
-import { TextDocument, workspace, extensions, WorkspaceConfiguration } from 'vscode';
+import { TextDocument, workspace, extensions, WorkspaceConfiguration, Position, Range } from 'vscode';
 
 import { KNOWN_EXTENSIONS, KNOWN_LANGUAGES } from './constants';
 import type { API, GitExtension } from './git';
@@ -27,6 +27,9 @@ type WorkspaceExtensionConfiguration = WorkspaceConfiguration & {
 	removeTimestamp: boolean;
 	removeRemoteRepository: boolean;
 	idleTimeout: number;
+	statusContextRange: number;
+	openaiApiKey: string;
+	openaiGptModel: string;
 };
 
 export function getConfig() {
@@ -83,4 +86,10 @@ export async function getGit() {
 	}
 
 	return git;
+}
+
+export function getSurroundingText(document: TextDocument, position: Position, range: number): string {
+	const start = Math.max(0, document.offsetAt(position) - range);
+	const end = Math.min(document.getText().length, document.offsetAt(position) + range);
+	return document.getText(new Range(document.positionAt(start), document.positionAt(end)));
 }
