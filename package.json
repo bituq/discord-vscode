@@ -155,11 +155,6 @@
 						"default": 0,
 						"description": "Time (in seconds) to clear the presence when idling. 0 (the default) means no clearing"
 					},
-					"discord.statusPrompt:": {
-						"type": "string",
-						"default": "Describe the code snippet in a single short sentence. Be efficient with your words. Format it in a way which describes the developer's activity, without revealing specifics. Respond in first-person from the developer's perspective.",
-						"description": "The prompt for the GPT-generated status"
-					},
 					"discord.openaiApiKey": {
 						"type": "string",
 						"default": "",
