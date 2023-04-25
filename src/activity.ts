@@ -15,8 +15,8 @@ import {
 	VSCODE_IMAGE_KEY,
 	VSCODE_INSIDERS_IMAGE_KEY,
 } from './constants';
-import prompt from './data/statusPrompt.json';
 
+import statusPrompt from './data/statusPrompt.json';
 import { config } from './extension';
 import { log, LogLevel } from './logger';
 import { getConfig, getGit, getSurroundingText, resolveFileIcon, toLower, toTitle, toUpper } from './util';
@@ -51,24 +51,26 @@ async function generateStatusFromGPT(text: string) {
 
 		const completion = await openai.createChatCompletion({
 			model: config.openaiGptModel,
-			temperature: 1.0,
+			temperature: 0.2,
 			messages: [
-				{ role: 'system', content: prompt.content },
+				{ role: 'system', content: statusPrompt.content },
 				{ role: 'user', content: text },
 			],
 		});
 
-		log(LogLevel.Info, completion.data.choices[0].message?.content ?? 'Unkown activity');
+		log(LogLevel.Info, completion.data.choices[0].message?.content ?? 'Unknown activity');
 
 		return completion.data.choices[0].message?.content ?? 'Unknown activity';
 	} catch (e) {
-		log(LogLevel.Error, 'Unable to generate status');
+		log(LogLevel.Error, `Unable to generate status: ${e as string}`);
 	}
 
 	return undefined;
 }
 
-const throttledGenerateStatusFromGPT = throttle(generateStatusFromGPT, 10000, { trailing: false });
+const throttledGenerateStatusFromGPT = throttle(generateStatusFromGPT, 20 * 1000, {
+	trailing: false,
+});
 
 async function fileDetails(_raw: string, document: TextDocument, selection: Selection, options?: FileDetailsOptions) {
 	let raw = _raw.slice();
@@ -77,7 +79,7 @@ async function fileDetails(_raw: string, document: TextDocument, selection: Sele
 		let status: string;
 
 		if (options?.changeStatus !== false && options?.changeStatus !== undefined && config.openaiApiKey !== '') {
-			log(LogLevel.Debug, `Changing status with key: ${config.openaiApiKey}`);
+			log(LogLevel.Debug, `Changing status with key`);
 			const surroundingText = getSurroundingText(document, selection.active, config.statusContextRange);
 
 			status = (await throttledGenerateStatusFromGPT(surroundingText)) ?? oldStatus;

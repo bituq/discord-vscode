@@ -49,7 +49,7 @@ async function login() {
 		const onStartDebugSession = debug.onDidStartDebugSession(() => sendActivity());
 		const onTerminateDebugSession = debug.onDidTerminateDebugSession(() => sendActivity());
 		const onDidChangeTextEditorSelection = window.onDidChangeTextEditorSelection(
-			throttle(() => sendActivity({ changeStatus: true }), 10000, { trailing: false }),
+			throttle(() => sendActivity({ changeStatus: true }), 2000, { trailing: false }),
 		);
 
 		listeners.push(
